@@ -1,3 +1,4 @@
+`docker run -d -p 3000:3000 --env ACCESS_TOKEN=123456789 --name=broadcast --restart=always eskater/broadcast.socket.express:latest`
 
 ### envs
 
@@ -6,7 +7,7 @@
 3. USER_ENDPOINT=http://localhost/restful/v1/user/profile
 
 ### expressjs
-1. post `/broadcast/events/:user/:event` -> `to($user).emit($event, req.body)`
+1. post `/broadcast/events/:user/:event?access_token=123456789` -> `to($user).emit($event, req.body)`
 
 ### socket.io client
 

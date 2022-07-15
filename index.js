@@ -29,15 +29,20 @@ app.post('/room/:room/:event', (request, response) => {
   response.end();
 });
 
+app.get('/room/:room/users', async (request, response) => {
+  const sockets = await room.in(request.params.room).fetchSockets();
+
+  response.setHeader('Content-Type', 'application/json');
+  response.end(JSON.stringify(sockets.map(socket => socket.room.user)));
+});
+
 io.of('/user').use(async (socket, next) => {
   if (!socket.user) {
     try {
-      if (socket.handshake.auth['token']) {
-        socket.user = await rest.fetchUserByToken(socket.handshake.auth['token']);
-      }
-  
-      if (socket.handshake.headers['cookie']) {
-        socket.user = await rest.fetchUserByCookie(socket.handshake.headers['cookie']);
+      const handshake = socket.handshake;
+
+      if (handshake.auth['token'] || handshake.headers['cookie']) {
+        socket.user = await rest.fetchUser(handshake.auth['token'], handshake.headers['cookie']);
       }
     } catch (error) {}
   }
@@ -52,8 +57,10 @@ io.of('/user').use(async (socket, next) => {
 io.of('/room').use(async (socket, next) => {
   if (!socket.room) {
     try {
-      if (socket.handshake.auth['code']) {
-        socket.room = await rest.fetchRoomByCode(socket.handshake.auth['code']);
+      const handshake = socket.handshake;
+
+      if (handshake.auth['code']) {
+        socket.room = await rest.fetchRoom(handshake.auth['code'], handshake.auth['token'], handshake.headers['cookie']);
       }
     } catch (error) {}
   }
@@ -66,6 +73,20 @@ io.of('/room').use(async (socket, next) => {
 });
 
 io.of('/user').on('connection', socket => socket.join(socket.user.id));
-io.of('/room').on('connection', socket => socket.join(socket.room.code));
+
+const room = io.of('/room');
+
+room.on('connection', async socket => {
+  const code = socket.room.code;
+  const sockets = await room.in(code).fetchSockets();
+
+  socket.join(code);
+
+  room.to(code).emit('join', socket.room.user);
+  room.to(code).emit('users', sockets.map(socket => socket.room.user));
+
+  socket.on('disconnect', () => 
+    room.to(socket.room.code).emit('leave', socket.room.user));
+});
 
 http.listen(3000);

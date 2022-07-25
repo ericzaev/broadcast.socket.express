@@ -77,16 +77,18 @@ io.of('/user').on('connection', socket => socket.join(socket.user.id));
 const room = io.of('/room');
 
 room.on('connection', async socket => {
-  const code = socket.room.code;
-  const sockets = await room.in(code).fetchSockets();
-
-  socket.join(code);
-
-  room.to(code).emit('join', socket.room.user);
-  room.to(code).emit('users', sockets.map(socket => socket.room.user));
+  socket.on('message', data => 
+    room.to(socket.room.code).emit('message', {data, user: socket.room.user}));
 
   socket.on('disconnect', () => 
     room.to(socket.room.code).emit('leave', socket.room.user));
+
+  room.to(socket.room.code).emit('join', socket.room.user);
+
+  socket.join(socket.room.code);
+
+  socket.emit('users', 
+    (await room.in(socket.room.code).fetchSockets()).map(socket => socket.room.user));
 });
 
 http.listen(3000);

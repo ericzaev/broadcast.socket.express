@@ -1,11 +1,16 @@
-FROM node:latest
+FROM keymetrics/pm2:16-alpine
 
-COPY ./ /app
-WORKDIR /app
+COPY package.json .
+COPY pm2.json .
+COPY src src/
 
-RUN npm install
-RUN npm install pm2 -g
+# Install app dependencies
+ENV NPM_CONFIG_LOGLEVEL warn
+RUN npm install --production
+
+# Show current folder structure in logs
+RUN ls -al -R
 
 EXPOSE 3000
 
-CMD ["pm2-runtime", "ecosystem.config.js"]
+CMD [ "pm2-runtime", "start", "pm2.json" ]

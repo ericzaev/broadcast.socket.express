@@ -23,20 +23,20 @@ Each endpoint must return data.
 import {Manager} from 'socket.io-client';
 
 const manage = new Manager(null, {path: '/broadcast/socket', withCredentials: true}); // or {auth: {token: ''}}
-const socket = manage.socket('/user'); // send request to USER_ENDPOINT for access
-const socket = manage.socket('/chat', {auth: {code: $tokenChat}}); // send request to ROOM_ENDPOINT for access
 
-socket.on('connect', () => {
+const user = manage.socket('/user'); // send request to USER_ENDPOINT for access
+
+user.on('connect', () => {
 
 });
 
-socket.on('error', error => {
+user.on('error', error => {
   console.log(error);
 });
 
-socket.on('hello', data => {
-  console.log(data);
-});
+const chat = manage.socket('/chat');
+
+chat.emit('join', $tokenChat); // send request to ROOM_ENDPOINT for access
 ```
 
 ### nginx 

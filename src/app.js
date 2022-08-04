@@ -33,25 +33,13 @@ app.get('/:nsp/:room/users', async (request, response) => {
 const dynamic = io.of(/^\/\w+$/);
 
 dynamic.use(async (socket, next) => {
-  const handshake = socket.handshake;
+  socket.user = {id: null, name: null};
 
   try {
-    switch (socket.nsp.name) {
-      case '/user':
-        if (handshake.auth['token'] || handshake.headers['cookie']) {
-          socket.user = await rest.fetchUser(handshake.auth['token'], handshake.headers['cookie']);
-        }
-
-        break;
-      default:
-        if (handshake.auth['code']) {
-          socket.room = await rest.fetchRoom(`${socket.nsp.name}:${handshake.auth['code']}`,
-            handshake.auth['token'], handshake.headers['cookie']);
-        }
-    }
+    socket.user = await rest.fetchUser(socket.handshake.auth['token'], socket.handshake.headers['cookie']);
   } catch (error) {}
 
-  if (socket.user || socket.room) {
+  if (socket.user.id || socket.nsp.name !== '/user') {
     next();
   } else {
     next(new Error('Unauthenticated'));
@@ -67,18 +55,27 @@ dynamic.on('connection', async socket => {
 
       break;
     default:
-      socket.on('message', data =>
-        nsp.to(socket.room.code).emit('message', {data, user: socket.room.user}));
+      socket.on('join', async code => {
+        try {
+          const room = await rest.fetchRoom(`${socket.nsp.name}:${code}`,
+            socket.handshake.auth['token'], socket.handshake.headers['cookie']);
 
-      socket.on('disconnect', () =>
-        nsp.to(socket.room.code).emit('leave', socket.room.user));
+            socket.emit('users', (await nsp.in(room.code).fetchSockets()).map(socket => socket.user));
+            socket.join(room.code);
 
-      nsp.to(socket.room.code).emit('join', socket.room.user);
+            nsp.to(room.code).emit('join', socket.user);
+        } catch ({message}) {
+          socket.emit(`${socket.nsp.name}-error`, message);
+        }
+      });
 
-      socket.join(socket.room.code);
+      socket.on('message', data => {
+        if (data.room) {
+          nsp.to(data.room).emit('message', {data, user: socket.user});
+        }
+      });
 
-      socket.emit('users',
-        (await nsp.in(socket.room.code).fetchSockets()).map(socket => socket.room.user));
+      socket.on('disconnect', () => nsp.emit('leave', socket.user));
   }
 });
 

@@ -15,7 +15,7 @@
 
 Each endpoint must return data.
 1. USER_ENDPOINT: `{id: 666, name: 'my name'}`
-2. ROOM_ENDPOINT: `{id: 333, code: '6b5d7bbb-c977-485b-99cd-731478de40ed', user: {id: 666, name: 'my name'}}`
+2. ROOM_ENDPOINT: `{id: 333, code: '6b5d7bbb-c977-485b-99cd-731478de40ed'}`
 
 ### socket.io client
 
@@ -25,18 +25,12 @@ import {Manager} from 'socket.io-client';
 const manage = new Manager(null, {path: '/broadcast/socket', withCredentials: true}); // or {auth: {token: ''}}
 
 const user = manage.socket('/user'); // send request to USER_ENDPOINT for access
+      user.on('notification', data => console.log(data)); // {value: 'test'}
 
-user.on('connect', () => {
-
-});
-
-user.on('error', error => {
-  console.log(error);
-});
-
+const token = '6b5d7bbb-c977-485b-99cd-731478de40ed';
 const chat = manage.socket('/chat');
-
-chat.emit('join', $tokenChat); // send request to ROOM_ENDPOINT for access
+      chat.on('test', data => console.log(data)); // {data: {value: 'test'}, room: '6b5d7bbb-c977-485b-99cd-731478de40ed'}
+      chat.emit('join', token); // send request to ROOM_ENDPOINT for access
 ```
 
 ### nginx 

@@ -18,7 +18,9 @@ app.use(function (request, response, next) {
 });
 
 app.post('/:nsp/:room/:event', (request, response) => {
-  io.of(request.params.nsp).to(request.params.room).emit(request.params.event, request.body);
+  const {nsp, room, event} = request.params;
+
+  io.of(nsp).to(room).emit(event, nsp === 'user' ? request.body : {data: request.body, room});
 
   response.end();
 });
@@ -57,21 +59,22 @@ dynamic.on('connection', async socket => {
     default:
       socket.on('join', async code => {
         try {
-          const room = await rest.fetchRoom(`${socket.nsp.name}:${code}`,
+          await rest.fetchRoom(`${socket.nsp.name}:${code}`,
             socket.handshake.auth['token'], socket.handshake.headers['cookie']);
 
-            socket.emit('users', (await nsp.in(room.code).fetchSockets()).map(socket => socket.user));
-            socket.join(room.code);
+          socket.emit('users', {data:
+            (await nsp.in(code).fetchSockets()).map(socket => socket.user), room: code});
+          socket.join(code);
 
-            nsp.to(room.code).emit('join', socket.user);
+          nsp.to(code).emit('join', {data: socket.user, room: code});
         } catch ({message}) {
-          socket.emit(`${socket.nsp.name}-error`, message);
+          socket.emit(`${socket.nsp.name}-error`, {room: code, message});
         }
       });
 
       socket.on('message', data => {
         if (data.room) {
-          nsp.to(data.room).emit('message', {data, user: socket.user});
+          nsp.to(data.room).emit('message', {data, room: data.room, user: socket.user});
         }
       });
 
